@@ -5,10 +5,7 @@ import cn.hutool.core.date.DateUtil;
 import com.alibaba.fastjson.JSON;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.*;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.websocketx.*;
 import io.netty.util.CharsetUtil;
@@ -16,11 +13,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> {
 
     private WebSocketServerHandshaker handShaker;
+
+    private ConcurrentHashMap<String, Channel> sessions = new ConcurrentHashMap<>();
 
     @Override
     protected void messageReceived(ChannelHandlerContext ctx, Object msg) {
@@ -30,6 +30,8 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
         }
         // WebSocket接入
         else if (msg instanceof WebSocketFrame) {
+            log.info("new connection is {}", ctx.channel().id().asShortText());
+            sessions.put(ctx.channel().id().asShortText(), ctx.channel());
             handleWebSocketFrame(ctx, (WebSocketFrame) msg);
         }
     }
@@ -89,15 +91,18 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
         if (frame instanceof CloseWebSocketFrame) {
             handShaker.close(ctx.channel(),
                     (CloseWebSocketFrame) frame.retain());
+            log.info("session closed. sessionId is {}.", ctx.channel().id().asShortText());
+            sessions.remove(ctx.channel().id().asShortText());
             return;
         }
-        // 判断是否是Ping消息
+        // 判断是否是Ping消息 协议级别的
         if (frame instanceof PingWebSocketFrame) {
             ctx.channel().write(
                     new PongWebSocketFrame(frame.content().retain()));
+            log.info("ws received ping frame.");
             return;
         }
-        // 本例程仅支持文本消息，不支持二进制消息
+        // 仅支持文本消息，不支持二进制消息
         if (!(frame instanceof TextWebSocketFrame)) {
             throw new UnsupportedOperationException(String.format(
                     "%s frame types not supported", frame.getClass().getName()));
@@ -135,4 +140,6 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
             f.addListener(ChannelFutureListener.CLOSE);
         }
     }
+
+
 }
