@@ -23,7 +23,7 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
     private WebSocketServerHandshaker handShaker;
 
     @Override
-    protected void messageReceived(ChannelHandlerContext ctx, Object msg) throws Exception {
+    protected void messageReceived(ChannelHandlerContext ctx, Object msg) {
         // 传统的HTTP接入
         if (msg instanceof FullHttpRequest) {
             handleHttpRequest(ctx, (FullHttpRequest) msg);
@@ -51,8 +51,9 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
 
         // 如果是 websocket 握手
         if (("websocket".equals(req.headers().get("Upgrade")))) {
+            log.info("channel is {}", ctx.channel());
             WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(
-                    "ws://localhost:8080/websocket", null, false);
+                    "ws:" + ctx.channel(), null, false);
             handShaker = wsFactory.newHandshaker(req);
             if (handShaker == null) {
                 WebSocketServerHandshakerFactory
@@ -104,6 +105,12 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
 
         // 返回应答消息
         String request = ((TextWebSocketFrame) frame).text();
+
+        if ("ping".equals(request)) {
+            ctx.channel().write(new TextWebSocketFrame("pong"));
+            return;
+        }
+
         log.info("{} receiver {}", ctx.channel(), request);
         ctx.channel().write(
                 new TextWebSocketFrame(request
