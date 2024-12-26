@@ -5,12 +5,16 @@ import cn.hutool.core.date.DateUtil;
 import com.alibaba.fastjson.JSON;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.*;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.websocketx.*;
 import io.netty.util.CharsetUtil;
 import lombok.extern.slf4j.Slf4j;
 
+import java.nio.channels.Channel;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,7 +35,7 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
         // WebSocket接入
         else if (msg instanceof WebSocketFrame) {
             log.info("new connection is {}", ctx.channel().id().asShortText());
-            sessions.put(ctx.channel().id().asShortText(), ctx.channel());
+            sessions.put(ctx.channel().id().asShortText(), (Channel) ctx.channel());
             handleWebSocketFrame(ctx, (WebSocketFrame) msg);
         }
     }
